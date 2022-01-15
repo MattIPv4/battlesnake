@@ -1,3 +1,56 @@
+const floodFill = (grid, pos, callback = () => {}) => {
+    const queue = [ pos ];
+    const visited = new Set();
+
+    while (queue.length) {
+        const { x, y } = queue.shift();
+
+        // Ignore out-of-bounds
+        if (x < 0 || x >= grid.length || y < 0 || y >= grid[0].length) continue;
+
+        // Handle visited
+        if (visited.has(`${x},${y}`)) continue;
+        visited.add(`${x},${y}`);
+
+        // Run callback, return if value
+        const res = callback(grid, x, y);
+        if (res !== undefined) return res;
+
+        // Add neighbors
+        queue.push({ x: x - 1, y }, { x: x + 1, y }, { x, y: y - 1 }, { x, y: y + 1 });
+    }
+};
+
+const scoreMove = (data, grid, pos) => {
+    const { x, y } = pos;
+
+    // Avoid out-of-bounds
+    if (x < 0 || x >= grid.length) return 0;
+    if (y < 0 || y >= grid[0].length) return 0;
+
+    // Avoid hazards and snakes
+    if (grid[x][y] < 0) return 0;
+
+    // Score based on space
+    let open = 0;
+    floodFill(grid, pos, (grid, x, y) => {
+        if (grid[x][y] >= 0) open++;
+    });
+    const scoreSpace = open / (grid.length * grid[0].length);
+
+    // Find nearest food
+    const food = floodFill(grid, pos, (grid, x, y) => {
+        if (grid[x][y] === 1) return { x, y };
+    });
+    const scoreFood = food ? 1 - ((Math.abs(x - food.x) + Math.abs(y - food.y)) / (grid.length + grid[0].length)) : 0;
+
+    // TODO: Reduce initial food bias, increase as health decreases
+    // TODO: In current state this tends to get itself trapped in an enclosed area
+
+    // Score based on space + food
+    return scoreFood * 0.5 + scoreSpace * 0.5;
+};
+
 const handleRequest = async event => {
     const url = new URL(event.request.url);
     url.pathname = url.pathname.replace(/(?<=.)\/$/, '');
@@ -43,22 +96,12 @@ const handleRequest = async event => {
             { x: data.you.head.x, y: data.you.head.y - 1, move: 'down' },
         ];
 
-        // Filter out unsafe moves
-        const moves = potential.filter(move => move.x >= 0 && move.x < data.board.width
-            && move.y >= 0 && move.y < data.board.height
-            && grid[move.x][move.y] >= 0);
-
-        // Pick random
-        const move = moves.length === 0
-            ? { ...potential[0], shout: 'Welp. Oops.' }
-            : moves[Math.floor(Math.random() * moves.length)];
-        console.log(`[${data.turn}] Head: (${data.you.head.x}, ${data.you.head.y}) | Move: ${move.move} (${move.x}, ${move.y})`);
+        // Score each move
+        const moves = potential.map(m => ({ ...m, score: scoreMove(data, grid, m) })).sort((a, b) => b.score - a.score);
 
         // Go!
-        return new Response(JSON.stringify({
-            move: move.move,
-            shout: move.shout,
-        }, null, 2), { status: 200 });
+        console.log(`[${data.turn}] Head: (${data.you.head.x}, ${data.you.head.y}) | Move: ${moves[0].move} ${moves[0].score} (${moves[0].x}, ${moves[0].y})`);
+        return new Response(JSON.stringify({ move: moves[0].move }, null, 2), { status: 200 });
     }
 
     // 404 response
