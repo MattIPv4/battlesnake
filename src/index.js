@@ -14,7 +14,10 @@ const floodFill = (grid, pos, callback = () => {}) => {
 
         // Run callback, return if value
         const res = callback(grid, x, y);
-        if (res !== undefined) return res;
+        if (res !== undefined) {
+            if (res.return !== undefined) return res.return;
+            if (res.continue !== undefined) continue;
+        }
 
         // Add neighbors
         queue.push({ x: x - 1, y }, { x: x + 1, y }, { x, y: y - 1 }, { x, y: y + 1 });
@@ -25,30 +28,40 @@ const scoreMove = (data, grid, pos) => {
     const { x, y } = pos;
 
     // Avoid out-of-bounds
-    if (x < 0 || x >= grid.length) return 0;
-    if (y < 0 || y >= grid[0].length) return 0;
+    if (x < 0 || x >= grid.length) return { score: 0, scoreData: 'out-of-bounds' };
+    if (y < 0 || y >= grid[0].length) return { score: 0, scoreData: 'out-of-bounds' };
 
     // Avoid hazards and snakes
-    if (grid[x][y] < 0) return 0;
+    if (grid[x][y] < 0) return { score: 0, scoreData: `cell marked ${grid[x][y]}` };
 
     // Score based on space
     let open = 0;
     floodFill(grid, pos, (grid, x, y) => {
+        // Track open cells we found
         if (grid[x][y] >= 0) open++;
+
+        // Don't explore from bad cells
+        if (grid[x][y] < 0) return { continue: true };
     });
     const scoreSpace = open / (grid.length * grid[0].length);
 
     // Find nearest food
     const food = floodFill(grid, pos, (grid, x, y) => {
-        if (grid[x][y] === 1) return { x, y };
-    });
-    const scoreFood = food ? 1 - ((Math.abs(x - food.x) + Math.abs(y - food.y)) / (grid.length + grid[0].length)) : 0;
+        // If we find food, return it
+        if (grid[x][y] === 1) return { return: { x, y } };
 
-    // TODO: Reduce initial food bias, increase as health decreases
-    // TODO: In current state this tends to get itself trapped in an enclosed area
+        // Don't explore from bad cells
+        if (grid[x][y] < 0) return { continue: true };
+    });
+
+    // Score food based on distance and current health
+    const scoreFood = food ? 1 - ((Math.abs(x - food.x) + Math.abs(y - food.y)) / (grid.length + grid[0].length)) : 0;
+    const scoreFoodHealth = scoreFood * (1 - (data.you.health / 100));
+
+    // TODO: If longer than width or height and travelling in that direction, leave gap at end of row/column
 
     // Score based on space + food
-    return scoreFood * 0.5 + scoreSpace * 0.5;
+    return { score: scoreSpace * 0.5 + scoreFoodHealth * 0.5, scoreData: { scoreSpace, scoreFood, scoreFoodHealth } };
 };
 
 const handleRequest = async event => {
@@ -61,8 +74,8 @@ const handleRequest = async event => {
             apiversion: '1',
             author: 'MattIPv4',
             color: '#0069ff',
-            head: 'default',
-            tail: 'default',
+            head: 'bendr',
+            tail: 'round-bum',
             version: '0.0.1-beta',
         }, null, 2), { status: 200 });
 
@@ -97,7 +110,8 @@ const handleRequest = async event => {
         ];
 
         // Score each move
-        const moves = potential.map(m => ({ ...m, score: scoreMove(data, grid, m) })).sort((a, b) => b.score - a.score);
+        const moves = potential.map(m => ({ ...m, ...scoreMove(data, grid, m) })).sort((a, b) => b.score - a.score);
+        console.log(JSON.stringify(moves));
 
         // Go!
         console.log(`[${data.turn}] Head: (${data.you.head.x}, ${data.you.head.y}) | Move: ${moves[0].move} ${moves[0].score} (${moves[0].x}, ${moves[0].y})`);
