@@ -9,7 +9,7 @@ const handleRequest = async event => {
         return new Response(JSON.stringify({
             apiversion: '1',
             author: 'MattIPv4',
-            color: '#0069ff',
+            color: process.env.SNAKE_DEBUG === 'true' ? '#00c6ff' : '#0069ff',
             head: 'bendr',
             tail: 'round-bum',
             version: '0.0.1-beta',
