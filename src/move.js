@@ -33,9 +33,9 @@ const scoreMove = (data, grid, pos, wrap = false) => {
         if (grid[x][y].level < cellLevels.empty) return { continue: true };
     }, wrap);
 
-    // Score food based on distance and current health
+    // Score food based on distance and current health, non-linearly
     const scoreFood = food ? 1 - ((Math.abs(x - food.x) + Math.abs(y - food.y)) / (grid.length + grid[0].length)) : 0;
-    const scoreFoodHealth = scoreFood * (1 - (data.you.health / 100));
+    const scoreFoodHealth = scoreFood * (((-data.you.health / 100) + 1) ** 3);
 
     // Check for head-to-heads
     const dangerousHeads = surrounding(pos).filter(cell => {
