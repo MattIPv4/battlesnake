@@ -1,12 +1,20 @@
-const floodFill = (grid, pos, callback = () => {}) => {
+const floodFill = (grid, pos, callback, wrap = false) => {
     const queue = [ pos ];
     const visited = new Set();
 
     while (queue.length) {
-        const { x, y } = queue.shift();
+        let { x, y } = queue.shift();
 
-        // Ignore out-of-bounds
-        if (x < 0 || x >= grid.length || y < 0 || y >= grid[0].length) continue;
+        // If standard, ignore out-of-bounds
+        if (!wrap && (x < 0 || x >= grid.length || y < 0 || y >= grid[0].length)) continue;
+
+        // If wrap, adjust out-of-bounds
+        if (wrap) {
+            if (x < 0) x = grid.length - 1;
+            if (x >= grid.length) x = 0;
+            if (y < 0) y = grid[0].length - 1;
+            if (y >= grid[0].length) y = 0;
+        }
 
         // Handle visited
         if (visited.has(`${x},${y}`)) continue;
@@ -24,12 +32,20 @@ const floodFill = (grid, pos, callback = () => {}) => {
     }
 };
 
-const scoreMove = (data, grid, pos) => {
-    const { x, y } = pos;
+const scoreMove = (data, grid, pos, wrap = false) => {
+    let { x, y } = pos;
 
-    // Avoid out-of-bounds
-    if (x < 0 || x >= grid.length) return { score: 0, scoreData: 'out-of-bounds' };
-    if (y < 0 || y >= grid[0].length) return { score: 0, scoreData: 'out-of-bounds' };
+    // If standard, avoid out-of-bounds
+    if (!wrap && (x < 0 || x >= grid.length || y < 0 || y >= grid[0].length))
+        return { score: 0, scoreData: 'out-of-bounds' };
+
+    // If wrap, adjust out-of-bounds
+    if (wrap) {
+        if (x < 0) x = grid.length - 1;
+        if (x >= grid.length) x = 0;
+        if (y < 0) y = grid[0].length - 1;
+        if (y >= grid[0].length) y = 0;
+    }
 
     // Avoid hazards and snakes
     if (grid[x][y] < 0) return { score: 0, scoreData: `cell marked ${grid[x][y]}` };
@@ -42,7 +58,7 @@ const scoreMove = (data, grid, pos) => {
 
         // Don't explore from bad cells
         if (grid[x][y] < 0) return { continue: true };
-    });
+    }, wrap);
     const scoreSpace = open / (grid.length * grid[0].length);
 
     // Find nearest food
@@ -52,7 +68,7 @@ const scoreMove = (data, grid, pos) => {
 
         // Don't explore from bad cells
         if (grid[x][y] < 0) return { continue: true };
-    });
+    }, wrap);
 
     // Score food based on distance and current health
     const scoreFood = food ? 1 - ((Math.abs(x - food.x) + Math.abs(y - food.y)) / (grid.length + grid[0].length)) : 0;
@@ -109,8 +125,12 @@ const handleRequest = async event => {
             { x: data.you.head.x, y: data.you.head.y - 1, move: 'down' },
         ];
 
+        // Check if running in wrapped mode
+        const wrap = data.game.ruleset.name === 'wrapped';
+
         // Score each move
-        const moves = potential.map(m => ({ ...m, ...scoreMove(data, grid, m) })).sort((a, b) => b.score - a.score);
+        const moves = potential.map(move => ({ ...move, ...scoreMove(data, grid, move, wrap) }))
+            .sort((a, b) => b.score - a.score);
         console.log(JSON.stringify(moves));
 
         // Go!
