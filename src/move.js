@@ -18,26 +18,27 @@ const scoreMove = (data, grid, pos, wrap = false) => {
     }
 
     // Avoid hazards and snakes
-    if (grid[x][y] < cellLevels.empty) return { score: 0, scoreData: `cell marked ${cellLevels[grid[x][y]]}` };
+    if (grid[x][y].level < cellLevels.empty)
+        return { score: 0, scoreData: `cell marked ${cellLevels[grid[x][y].level]}` };
 
     // Score based on space
     let open = 0;
     floodFill(grid, pos, (grid, x, y) => {
         // Track open cells we found
-        if (grid[x][y] >= 0) open++;
+        if (grid[x][y].level >= cellLevels.empty) open++;
 
         // Don't explore from bad cells
-        if (grid[x][y] < 0) return { continue: true };
+        if (grid[x][y].level < cellLevels.empty) return { continue: true };
     }, wrap);
     const scoreSpace = open / (grid.length * grid[0].length);
 
     // Find nearest food
     const food = floodFill(grid, pos, (grid, x, y) => {
         // If we find food, return it
-        if (grid[x][y] === 1) return { return: { x, y } };
+        if (grid[x][y].level === cellLevels.food) return { return: { x, y } };
 
         // Don't explore from bad cells
-        if (grid[x][y] < 0) return { continue: true };
+        if (grid[x][y].level < cellLevels.empty) return { continue: true };
     }, wrap);
 
     // Score food based on distance and current health
@@ -52,15 +53,29 @@ const scoreMove = (data, grid, pos, wrap = false) => {
 
 module.exports = data => {
     // Create the empty grid
-    const grid = Array(data.board.width).fill(cellLevels.empty)
-        .map(() => Array(data.board.height).fill(cellLevels.empty));
+    const grid = Array(data.board.width).fill(null)
+        .map(() => Array(data.board.height).fill(null)
+            .map(() => ({ level: cellLevels.empty })));
 
-    // Get everything unsafe on the board
-    for (const snake of data.board.snakes) for (const part of snake.body) grid[part.x][part.y] = cellLevels.snake;
-    for (const hazard of data.board.hazards) grid[hazard.x][hazard.y] = cellLevels.hazard;
+    // Track all snakes on the board
+    for (const snake of data.board.snakes) {
+        for (const part of snake.body) {
+            grid[part.x][part.y].level = cellLevels.snake;
+            grid[part.x][part.y].snake = snake;
+        }
+    }
 
-    // Get all the food on the board
-    for (const food of data.board.food) grid[food.x][food.y] = cellLevels.food;
+    // Track all hazards on the board
+    for (const hazard of data.board.hazards) {
+        grid[hazard.x][hazard.y].level = cellLevels.hazard;
+        grid[hazard.x][hazard.y].hazard = hazard;
+    }
+
+    // Track all the food on the board
+    for (const food of data.board.food) {
+        grid[food.x][food.y].level = cellLevels.food;
+        grid[food.x][food.y].food = food;
+    }
 
     // Get all possible moves
     const potential = [
