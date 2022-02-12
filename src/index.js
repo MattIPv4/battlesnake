@@ -1,3 +1,8 @@
+const logLevels = {};
+logLevels[logLevels.debug = 0] = 'debug';
+logLevels[logLevels.warn = 1] = 'warn';
+logLevels[logLevels.error = 2] = 'error';
+
 const floodFill = (grid, pos, callback, wrap = false) => {
     const queue = [ pos ];
     const visited = new Set();
@@ -80,6 +85,22 @@ const scoreMove = (data, grid, pos, wrap = false) => {
     return { score: scoreSpace * 0.5 + scoreFoodHealth * 0.5, scoreData: { scoreSpace, scoreFood, scoreFoodHealth } };
 };
 
+const log = (level, ...args) => {
+    if (level < logLevels.warn && process.env.SNAKE_DEBUG !== 'true') return;
+
+    switch (level) {
+        case logLevels.debug:
+            console.log(...args);
+            break;
+        case logLevels.warn:
+            console.warn(...args);
+            break;
+        case logLevels.error:
+            console.error(...args);
+            break;
+    }
+};
+
 const handleRequest = async event => {
     const url = new URL(event.request.url);
     url.pathname = url.pathname.replace(/(?<=.)\/$/, '');
@@ -131,10 +152,10 @@ const handleRequest = async event => {
         // Score each move
         const moves = potential.map(move => ({ ...move, ...scoreMove(data, grid, move, wrap) }))
             .sort((a, b) => b.score - a.score);
-        console.log(JSON.stringify(moves));
+        log(logLevels.debug, JSON.stringify(moves));
 
         // Go!
-        console.log(`[${data.turn}] Head: (${data.you.head.x}, ${data.you.head.y}) | Move: ${moves[0].move} ${moves[0].score} (${moves[0].x}, ${moves[0].y})`);
+        log(logLevels.debug, `[${data.turn}] Head: (${data.you.head.x}, ${data.you.head.y}) | Move: ${moves[0].move} ${moves[0].score} (${moves[0].x}, ${moves[0].y})`);
         return new Response(JSON.stringify({ move: moves[0].move }, null, 2), { status: 200 });
     }
 

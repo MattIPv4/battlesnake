@@ -1,4 +1,5 @@
 const path = require('path');
+const { EnvironmentPlugin } = require('webpack');
 
 module.exports = {
     mode: 'none',
@@ -8,4 +9,9 @@ module.exports = {
         path: path.join(__dirname, 'dist'),
         filename: 'worker.js',
     },
+    plugins: [
+        new EnvironmentPlugin({
+            SNAKE_DEBUG: 'false',
+        }),
+    ],
 };

@@ -5,7 +5,7 @@
   "main": "dist/worker.js",
   "scripts": {
     "build": "webpack",
-    "dev": "wrangler dev",
+    "dev": "SNAKE_DEBUG=true wrangler dev",
     "tunnel": "cloudflared tunnel --url http://localhost:8787",
     "publish": "wrangler publish"
   },
