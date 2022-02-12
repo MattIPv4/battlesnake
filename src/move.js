@@ -46,7 +46,7 @@ const scoreMove = (data, grid, pos, wrap = false) => {
         if (grid[cellAdjusted.x][cellAdjusted.y].snake.id === data.you.id) return false;
         if (grid[cellAdjusted.x][cellAdjusted.y].snake.head.x !== cellAdjusted.x) return false;
         if (grid[cellAdjusted.x][cellAdjusted.y].snake.head.y !== cellAdjusted.y) return false;
-        if (grid[cellAdjusted.x][cellAdjusted.y].snake.health < data.you.health) return false;
+        if (grid[cellAdjusted.x][cellAdjusted.y].snake.length < data.you.length) return false;
 
         return true;
     });
