@@ -6,6 +6,7 @@
   "scripts": {
     "build": "webpack",
     "dev": "wrangler dev",
+    "tunnel": "cloudflared tunnel --url http://localhost:8787",
     "publish": "wrangler publish"
   },
   "repository": {
