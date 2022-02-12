@@ -3,6 +3,8 @@ const floodFill = require('./utils/floodFill');
 const log = require('./utils/log');
 const { adjust, surrounding } = require('./utils/position');
 
+const nonLinear = (val, exp = 2, inverse = false) => (inverse ? -val + 1 : val) ** exp;
+
 const scoreMove = (data, grid, pos, wrap = false) => {
     // Adjust for out-of-bounds
     const adjusted = adjust(pos, grid, wrap);
@@ -14,6 +16,7 @@ const scoreMove = (data, grid, pos, wrap = false) => {
         return { score: 0, scoreData: `cell marked ${cellLevels[grid[x][y].level]}` };
 
     // Score based on space
+    // TODO: Consider where other snakes could move to when ranking the space for this cell
     let open = 0;
     floodFill(grid, pos, (grid, x, y) => {
         // Track open cells we found
@@ -32,10 +35,12 @@ const scoreMove = (data, grid, pos, wrap = false) => {
         // Don't explore from bad cells
         if (grid[x][y].level < cellLevels.empty) return { continue: true };
     }, wrap);
+    const scoreFoodManhattan = food ? Math.abs(x - food.x) + Math.abs(y - food.y) : 0;
 
     // Score food based on distance and current health, non-linearly
-    const scoreFood = food ? 1 - ((Math.abs(x - food.x) + Math.abs(y - food.y)) / (grid.length + grid[0].length)) : 0;
-    const scoreFoodHealth = scoreFood * (((-data.you.health / 100) + 1) ** 3);
+    const scoreFood = nonLinear(scoreFoodManhattan / (grid.length + grid[0].length), 4, true);
+    const scoreHealth = nonLinear(data.you.health / 100, 4, true);
+    const scoreFoodHealth = scoreFood * scoreHealth;
 
     // Check for head-to-heads
     const dangerousHeads = surrounding(pos).filter(cell => {
@@ -52,14 +57,14 @@ const scoreMove = (data, grid, pos, wrap = false) => {
     });
     const scoreHeadsMult = 1 - (dangerousHeads.length / 3);
 
-    // TODO: If longer than width or height and travelling in that direction, leave gap at end of row/column
-
     // Score based on (space + food) * head-to-heads
     return {
         score: (scoreSpace * 0.5 + scoreFoodHealth * 0.5) * scoreHeadsMult,
         scoreData: {
             scoreSpace,
+            scoreFoodManhattan,
             scoreFood,
+            scoreHealth,
             scoreFoodHealth,
             scoreHeadsMult,
         },
