@@ -3,6 +3,12 @@ logLevels[logLevels.debug = 0] = 'debug';
 logLevels[logLevels.warn = 1] = 'warn';
 logLevels[logLevels.error = 2] = 'error';
 
+const cellLevels = {};
+cellLevels[cellLevels.hazard = -2] = 'hazard';
+cellLevels[cellLevels.snake = -1] = 'snake';
+cellLevels[cellLevels.empty = 0] = 'empty';
+cellLevels[cellLevels.food = 1] = 'food';
+
 const floodFill = (grid, pos, callback, wrap = false) => {
     const queue = [ pos ];
     const visited = new Set();
@@ -53,7 +59,7 @@ const scoreMove = (data, grid, pos, wrap = false) => {
     }
 
     // Avoid hazards and snakes
-    if (grid[x][y] < 0) return { score: 0, scoreData: `cell marked ${grid[x][y]}` };
+    if (grid[x][y] < cellLevels.empty) return { score: 0, scoreData: `cell marked ${cellLevels[grid[x][y]]}` };
 
     // Score based on space
     let open = 0;
@@ -129,14 +135,15 @@ const handleRequest = async event => {
         const data = await event.request.json();
 
         // Create the empty grid
-        const grid = Array(data.board.width).fill(0).map(() => Array(data.board.height).fill(0));
+        const grid = Array(data.board.width).fill(cellLevels.empty)
+            .map(() => Array(data.board.height).fill(cellLevels.empty));
 
         // Get everything unsafe on the board
-        for (const snake of data.board.snakes) for (const part of snake.body) grid[part.x][part.y] = -1;
-        for (const hazard of data.board.hazards) grid[hazard.x][hazard.y] = -1;
+        for (const snake of data.board.snakes) for (const part of snake.body) grid[part.x][part.y] = cellLevels.snake;
+        for (const hazard of data.board.hazards) grid[hazard.x][hazard.y] = cellLevels.hazard;
 
         // Get all the food on the board
-        for (const food of data.board.food) grid[food.x][food.y] = 1;
+        for (const food of data.board.food) grid[food.x][food.y] = cellLevels.food;
 
         // Get all possible moves
         const potential = [
