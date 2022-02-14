@@ -114,9 +114,17 @@ module.exports = data => {
         .map(() => Array(data.board.height).fill(null)
             .map(() => ({ level: cellLevels.empty })));
 
+    // Check what gamemode we're running
+    const wrap = data.game.ruleset.name === 'wrapped';
+    const constrict = data.game.ruleset.name === 'constrictor';
+
     // Track all snakes on the board
     for (const snake of data.board.snakes) {
-        for (const part of snake.body) {
+        const snakeLength = snake.body.length;
+        for (const [ index, part ] of snake.body.entries()) {
+            // If not constricting, ignore the tail as it will be gone during this tick
+            if (!constrict && index === snakeLength - 1) continue;
+
             grid[part.x][part.y].level = cellLevels.snake;
             grid[part.x][part.y].snake = snake;
         }
@@ -133,9 +141,6 @@ module.exports = data => {
         grid[food.x][food.y].level = cellLevels.food;
         grid[food.x][food.y].food = food;
     }
-
-    // Check if running in wrapped mode
-    const wrap = data.game.ruleset.name === 'wrapped';
 
     // Score each move from current position
     const moves = surrounding(data.you.head).map(move => ({ ...move, ...scoreMove(data, grid, move, wrap) }))
