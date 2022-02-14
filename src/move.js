@@ -3,18 +3,9 @@ const floodFill = require('./utils/floodFill');
 const log = require('./utils/log');
 const { adjust, surrounding } = require('./utils/position');
 
-const nonLinear = (val, exp = 2, inverse = false) => (inverse ? -val + 1 : val) ** exp;
+const exponential = (val, exp = 2, reverse = false) => (reverse ? -val + 1 : val) ** exp;
 
-const scoreMove = (data, grid, pos, wrap = false) => {
-    // Adjust for out-of-bounds
-    const adjusted = adjust(pos, grid, wrap);
-    if (!adjusted) return { score: 0, scoreData: 'out-of-bounds' };
-    const { x, y } = adjusted;
-
-    // Avoid hazards and snakes
-    if (grid[x][y].level < cellLevels.empty)
-        return { score: 0, scoreData: `cell marked ${cellLevels[grid[x][y].level]}` };
-
+const scoreSpace = (data, grid, pos, wrap) => {
     // Score based on space
     // TODO: Consider where other snakes could move to when ranking the space for this cell
     let open = 0;
@@ -25,23 +16,29 @@ const scoreMove = (data, grid, pos, wrap = false) => {
         // Don't explore from bad cells
         if (grid[x][y].level < cellLevels.empty) return { continue: true };
     }, wrap);
-    const scoreSpace = open / (grid.length * grid[0].length);
 
+    return { score: open / (grid.length * grid[0].length), data: {} };
+};
+
+const scoreFood = (data, grid, pos, wrap) => {
     // Find nearest food
-    const food = floodFill(grid, pos, (grid, x, y) => {
+    const foodPos = floodFill(grid, pos, (grid, x, y) => {
         // If we find food, return it
         if (grid[x][y].level === cellLevels.food) return { return: { x, y } };
 
         // Don't explore from bad cells
         if (grid[x][y].level < cellLevels.empty) return { continue: true };
     }, wrap);
-    const scoreFoodManhattan = food ? Math.abs(x - food.x) + Math.abs(y - food.y) : 0;
+    const manhattan = foodPos ? Math.abs(pos.x - foodPos.x) + Math.abs(pos.y - foodPos.y) : 0;
 
     // Score food based on distance and current health, non-linearly
-    const scoreFood = nonLinear(scoreFoodManhattan / (grid.length + grid[0].length), 4, true);
-    const scoreHealth = nonLinear(data.you.health / 100, 4, true);
-    const scoreFoodHealth = scoreFood * scoreHealth;
+    const food = exponential(manhattan / (grid.length + grid[0].length), 5, true);
+    const health = exponential(data.you.health / 100, 5, true);
 
+    return { score: food * health, data: { manhattan, food, health } };
+};
+
+const scoreHeadToHead = (data, grid, pos, wrap) => {
     // Check for head-to-heads
     const dangerousHeads = surrounding(pos).filter(cell => {
         const cellAdjusted = adjust(cell, grid, wrap);
@@ -55,18 +52,58 @@ const scoreMove = (data, grid, pos, wrap = false) => {
 
         return true;
     });
-    const scoreHeadsMult = 1 - (dangerousHeads.length / 3);
 
-    // Score based on (space + food) * head-to-heads
+    // Don't subtract 1 from `data.snakes.length` to account for self, as we never want this to equal 0
+    return { score: 1 - (dangerousHeads.length / data.board.snakes.length), data: {} };
+};
+
+const scoreMove = (data, grid, pos, wrap) => {
+    // Adjust for out-of-bounds
+    const adjusted = adjust(pos, grid, wrap);
+    if (!adjusted) return { score: 0, scoreData: 'out-of-bounds' };
+    const { x, y } = adjusted;
+
+    // Avoid hazards and snakes
+    if (grid[x][y].level < cellLevels.empty)
+        return { score: 0, scoreData: `cell marked ${cellLevels[grid[x][y].level]}` };
+
+    // Get all the raw scores to consider
+    const scores = [
+        {
+            name: 'space',
+            type: 'add',
+            weight: 6,
+            ...scoreSpace(data, grid, adjusted, wrap),
+        },
+        {
+            name: 'food',
+            type: 'add',
+            weight: 4,
+            ...scoreFood(data, grid, adjusted, wrap),
+        },
+        {
+            name: 'head-to-head',
+            type: 'mult',
+            ...scoreHeadToHead(data, grid, adjusted, wrap),
+        },
+    ];
+
+    const totalWeight = scores.reduce((acc, score) => score.type === 'add'
+        ? acc + score.weight
+        : acc, 0);
+    const scoreAdd = scores.reduce((acc, score) => score.type === 'add'
+        ? acc + score.score * (score.weight / totalWeight)
+        : acc, 0);
+    const scoreMult = scores.reduce((acc, score) => score.type === 'mult'
+        ? acc * score.score
+        : acc, 1);
+
     return {
-        score: (scoreSpace * 0.5 + scoreFoodHealth * 0.5) * scoreHeadsMult,
-        scoreData: {
-            scoreSpace,
-            scoreFoodManhattan,
-            scoreFood,
-            scoreHealth,
-            scoreFoodHealth,
-            scoreHeadsMult,
+        score: scoreAdd * scoreMult,
+        data: {
+            scores,
+            scoreAdd,
+            scoreMult,
         },
     };
 };
