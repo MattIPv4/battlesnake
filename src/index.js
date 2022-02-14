@@ -9,9 +9,9 @@ const handleRequest = async event => {
         return new Response(JSON.stringify({
             apiversion: '1',
             author: 'MattIPv4',
-            color: process.env.SNAKE_DEBUG === 'true' ? '#00c6ff' : '#0069ff',
-            head: 'bendr',
-            tail: 'round-bum',
+            color: process.env.SNAKE_DEBUG === 'true' ? '#00c6ff' : '#1776fa',
+            head: 'do-sammy',
+            tail: 'do-sammy',
             version: '0.0.1-beta',
         }, null, 2), { status: 200 });
 
