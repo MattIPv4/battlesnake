@@ -130,8 +130,15 @@ const scoreMove = (data, grid, pos, wrap) => {
     };
 };
 
+/**
+ * @param {import('./utils/typedefs').Turn} data
+ * @return {{move: string}}
+ */
 module.exports = data => {
-    // Create the empty grid
+    /**
+     * Create the empty grid
+     * @type {import('./utils/typedefs').Grid}
+     * */
     const grid = Array(data.board.width).fill(null)
         .map(() => Array(data.board.height).fill(null)
             .map(() => ({})));
