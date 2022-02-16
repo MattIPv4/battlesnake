@@ -1,4 +1,3 @@
-const { logLevels } = require('./utils/enums');
 const floodFill = require('./utils/floodFill');
 const log = require('./utils/log');
 const { adjust, surrounding } = require('./utils/position');
@@ -160,9 +159,9 @@ module.exports = data => {
     // Score each move from current position
     const moves = surrounding(data.you.head).map(move => ({ ...move, ...scoreMove(data, grid, move, wrap) }))
         .sort((a, b) => b.score - a.score);
-    log(logLevels.debug, JSON.stringify(moves));
+    log.info(JSON.stringify(moves));
 
     // Go!
-    log(logLevels.debug, `[${data.turn}] Head: (${data.you.head.x}, ${data.you.head.y}) | Move: ${moves[0].move} ${moves[0].score} (${moves[0].x}, ${moves[0].y})`);
+    log.info(`[${data.turn}] Head: (${data.you.head.x}, ${data.you.head.y}) | Move: ${moves[0].move} ${moves[0].score} (${moves[0].x}, ${moves[0].y})`);
     return { move: moves[0].move };
 };
