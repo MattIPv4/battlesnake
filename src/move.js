@@ -2,8 +2,17 @@ const floodFill = require('./utils/floodFill');
 const log = require('./utils/log');
 const { adjust, surrounding } = require('./utils/position');
 
+/**
+ * @param {number} val
+ * @param {number} exp
+ * @param {boolean} [reverse=false]
+ * @return {number}
+ */
 const exponential = (val, exp = 2, reverse = false) => (reverse ? -val + 1 : val) ** exp;
 
+/**
+ * @type {import('./utils/typedefs').ScoreFunction}
+ */
 const scoreSpace = (data, grid, pos, wrap) => {
     // Score based on space
     // TODO: Consider where other snakes could move to when ranking the space for this cell
@@ -22,6 +31,9 @@ const scoreSpace = (data, grid, pos, wrap) => {
     };
 };
 
+/**
+ * @type {import('./utils/typedefs').ScoreFunction}
+ */
 const scoreFood = (data, grid, pos, wrap) => {
     // Find nearest food
     // TODO: Allow exploring past hazard cells, adding a penalty for each cell
@@ -48,6 +60,9 @@ const scoreFood = (data, grid, pos, wrap) => {
     };
 };
 
+/**
+ * @type {import('./utils/typedefs').ScoreFunction}
+ */
 const scoreHeadToHead = (data, grid, pos, wrap) => {
     // Check for head-to-heads
     const dangerousHeads = surrounding(pos).filter(cell => {
@@ -72,6 +87,9 @@ const scoreHeadToHead = (data, grid, pos, wrap) => {
     };
 };
 
+/**
+ * @type {import('./utils/typedefs').ScoreFunction}
+ */
 const scoreMove = (data, grid, pos, wrap) => {
     // Adjust for out-of-bounds
     const adjusted = adjust(pos, grid, wrap);
@@ -131,14 +149,14 @@ const scoreMove = (data, grid, pos, wrap) => {
 };
 
 /**
- * @param {import('./utils/typedefs').Turn} data
+ * @param {import('./utils/typedefs').GameState} data
  * @return {{move: string}}
  */
 module.exports = data => {
     /**
      * Create the empty grid
      * @type {import('./utils/typedefs').Grid}
-     * */
+     */
     const grid = Array(data.board.width).fill(null)
         .map(() => Array(data.board.height).fill(null)
             .map(() => ({})));

@@ -41,13 +41,21 @@
  * @property {string} id
  * @property {string} name
  * @property {number} health
- * @property {{x: number, y: number}[]} body
+ * @property {Coordinate[]} body
  * @property {string} latency
- * @property {{x: number, y: number}} head
+ * @property {Coordinate} head
  * @property {number} length
  * @property {string} shout
  * @property {string} squad
  * @property {Customizations} customizations
+ */
+
+/**
+ * Battlesnake API : Coordinate
+ *
+ * @typedef {Object} Coordinate
+ * @property {number} x
+ * @property {number} y
  */
 
 /**
@@ -68,15 +76,15 @@
  * @typedef {Object} Board
  * @property {number} height
  * @property {number} width
- * @property {{x: number, y: number}[]} food
- * @property {{x: number, y: number}[]} hazards
+ * @property {Coordinate[]} food
+ * @property {Coordinate[]} hazards
  * @property {Battlesnake[]} snakes
  */
 
 /**
- * Battlesnake API : POST (/start|/move|/end)
+ * Battlesnake API : GameState
  *
- * @typedef {Object} Turn
+ * @typedef {Object} GameState
  * @property {Game} game
  * @property {number} turn
  * @property {Board} board
@@ -96,4 +104,32 @@
  * Internal : Grid
  *
  * @typedef {GridCell[][]} Grid
+ */
+
+/**
+ * Internal : ScoreFunction
+ *
+ * @callback ScoreFunction
+ * @param {GameState} data
+ * @param {Grid} grid
+ * @param {Movement} pos
+ * @param {boolean} wrap
+ * @return {Score}
+ */
+
+/**
+ * Internal : Score
+ *
+ * @typedef {Object} Score
+ * @property {number} score
+ * @property {Object} data
+ */
+
+/**
+ * Internal : Movement
+ *
+ * @typedef {Object} Movement
+ * @property {number} x
+ * @property {number} y
+ * @property {string} move
  */

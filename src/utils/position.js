@@ -1,3 +1,10 @@
+/**
+ * @template {{x: number, y: number}} T
+ * @param {T} pos
+ * @param {import('./typedefs').Grid} grid
+ * @param {boolean} [wrap=false]
+ * @return {?T}
+ */
 const adjust = (pos, grid, wrap = false) => {
     let { x, y } = pos;
 
@@ -13,6 +20,10 @@ const adjust = (pos, grid, wrap = false) => {
     return { ...pos, x, y };
 };
 
+/**
+ * @param {{x: number, y: number}} pos
+ * @return {import('./typedefs').Movement[]}
+ */
 const surrounding = pos => ([
     { x: pos.x + 1, y: pos.y, move: 'right' },
     { x: pos.x - 1, y: pos.y, move: 'left' },

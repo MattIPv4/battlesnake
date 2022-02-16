@@ -1,5 +1,13 @@
 const { adjust } = require('./position');
 
+/**
+ * @template T
+ * @param {import('./typedefs').Grid} grid
+ * @param {{x: number, y: number}} pos
+ * @param {function(import('./typedefs').Grid, number, number): ({return: (T|undefined)}|{continue: (boolean|undefined)}|undefined)} callback
+ * @param {boolean} [wrap=false]
+ * @return {T|undefined}
+ */
 module.exports = (grid, pos, callback, wrap = false) => {
     const queue = [ pos ];
     const visited = new Set();
