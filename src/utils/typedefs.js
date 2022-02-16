@@ -96,8 +96,8 @@
  *
  * @typedef {Object} GridCell
  * @property {Battlesnake} [snake]
- * @property {{x: number, y: number}} [hazard]
- * @property {{x: number, y: number}} [food]
+ * @property {Coordinate} [hazard]
+ * @property {Coordinate} [food]
  */
 
 /**
