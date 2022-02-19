@@ -11,18 +11,30 @@ const { adjust, surrounding } = require('./utils/position');
 const exponential = (val, exp = 2, reverse = false) => (reverse ? -val + 1 : val) ** exp;
 
 /**
+ * @param {import('./utils/typedefs').Grid} grid
+ * @param {number} x
+ * @param {number} y
+ * @return {boolean}
+ */
+const isTail = (grid, x, y) => grid[x][y].snake
+    && x === grid[x][y].snake.body[grid[x][y].snake.body.length - 1].x
+    && y !== grid[x][y].snake.body[grid[x][y].snake.body.length - 1].y;
+
+/**
  * @type {import('./utils/typedefs').ScoreFunction}
  */
-const scoreSpace = (data, grid, pos, wrap) => {
+const scoreSpace = (data, grid, pos, wrap, constrict) => {
     // Score based on space
     // TODO: Consider where other snakes could move to when ranking the space for this cell
+    // TODO: Do we have enough health to explore hazard cells
     let open = 0;
     floodFill(grid, pos, (grid, x, y) => {
-        // Don't explore from bad cells
-        if (grid[x][y].snake) return { continue: true };
+        // Don't explore from cells that contain a snake, unless it's the tail and we're not in constrict mode
+        if (grid[x][y].snake && (constrict || !isTail(grid, x, y))) return { continue: true };
 
-        // Track open cells we found (treat hazard cells as open, but give them far less weight)
-        open += grid[x][y].hazard ? 1/5 : 1;
+        // Track open cells we found (treat hazard cells and tails as open, but give them far less weight)
+        // Hazard cells do us harm if our head is in one, and tails may still be there if the snake eats food
+        open += grid[x][y].hazard || grid[x][y].snake ? 1/5 : 1;
     }, wrap);
 
     return {
@@ -34,12 +46,13 @@ const scoreSpace = (data, grid, pos, wrap) => {
 /**
  * @type {import('./utils/typedefs').ScoreFunction}
  */
-const scoreFood = (data, grid, pos, wrap) => {
+const scoreFood = (data, grid, pos, wrap, constrict) => {
     // Find nearest food
-    // TODO: Allow exploring past hazard cells, adding a penalty for each cell
     const foodPos = floodFill(grid, pos, (grid, x, y) => {
-        // Don't explore from bad cells
-        if (grid[x][y].snake) return { continue: true };
+        // Don't explore from snake or hazard cells (allow exploring past hazards if we're currently in the hazard)
+        // TODO: Allow always exploring past hazards, but account for the damage they do
+        if (grid[x][y].snake || (grid[x][y].hazard && !grid[data.you.head.x][data.you.head.y].hazard))
+            return { continue: true };
 
         // If we find food, return it
         if (grid[x][y].food) return { return: { x, y } };
@@ -63,7 +76,7 @@ const scoreFood = (data, grid, pos, wrap) => {
 /**
  * @type {import('./utils/typedefs').ScoreFunction}
  */
-const scoreHeadToHead = (data, grid, pos, wrap) => {
+const scoreHeadToHead = (data, grid, pos, wrap, constrict) => {
     // Check for head-to-heads
     const dangerousHeads = surrounding(pos).filter(cell => {
         const cellAdjusted = adjust(cell, grid, wrap);
@@ -90,14 +103,15 @@ const scoreHeadToHead = (data, grid, pos, wrap) => {
 /**
  * @type {import('./utils/typedefs').ScoreFunction}
  */
-const scoreMove = (data, grid, pos, wrap) => {
+const scoreMove = (data, grid, pos, wrap, constrict) => {
     // Adjust for out-of-bounds
     const adjusted = adjust(pos, grid, wrap);
     if (!adjusted) return { score: 0, data: { msg: 'cell is out of bounds' } };
     const { x, y } = adjusted;
 
-    // Avoid any snakes at all costs
-    if (grid[x][y].snake) return { score: 0, data: { msg: 'cell contains snake' } };
+    // Avoid any snakes at all costs (unless it's the tail and we're not in constrict mode)
+    if (grid[x][y].snake && (constrict || !isTail(grid, x, y)))
+        return { score: 0, data: { msg: 'cell contains snake' } };
 
     // Get all the raw scores to consider
     const scores = [
@@ -105,25 +119,34 @@ const scoreMove = (data, grid, pos, wrap) => {
             name: 'space',
             type: 'add',
             weight: 6,
-            ...scoreSpace(data, grid, adjusted, wrap),
+            ...scoreSpace(data, grid, adjusted, wrap, constrict),
         },
         {
             name: 'food',
             type: 'add',
             weight: 4,
-            ...scoreFood(data, grid, adjusted, wrap),
+            ...scoreFood(data, grid, adjusted, wrap, constrict),
         },
         {
             // Try to avoid potential head-to-heads we can't win, but allow them if we must
             name: 'head-to-head',
             type: 'mult',
-            ...scoreHeadToHead(data, grid, adjusted, wrap),
+            ...scoreHeadToHead(data, grid, adjusted, wrap, constrict),
+        },
+        {
+            // If occupied by a tail, there is a chance the snake eats food and the tail doesn't disppear
+            name: 'snake-tail',
+            type: 'mult',
+            score: isTail(grid, x, y) ? 0.8 : 1,
+            data: isTail(grid, x, y) ? { msg: 'cell contains snake tail' } : {},
         },
         {
             // Try to avoid hazard cells if we can, but allow them to be used if we absolutely must
+            // Unless we have less health than it will do damage, then always avoid
+            // TODO: If we want to enter a hazard, do we have enough health to get to the next non-hazard cell?
             name: 'hazard',
             type: 'mult',
-            score: grid[x][y].hazard ? 0.1 : 1,
+            score: grid[x][y].hazard ? (data.you.health > data.game.ruleset.settings.hazardDamagePerTurn ? 0.1 : 0) : 1,
             data: grid[x][y].hazard ? { msg: 'cell is hazardous' } : {},
         },
     ];
@@ -166,14 +189,7 @@ module.exports = data => {
     const constrict = data.game.ruleset.name === 'constrictor';
 
     // Track all snakes on the board
-    for (const snake of data.board.snakes) {
-        const snakeLength = snake.body.length;
-        for (const [ index, part ] of snake.body.entries()) {
-            // If not constricting, ignore the tail as it will be gone during this tick
-            if (!constrict && index === snakeLength - 1) continue;
-            grid[part.x][part.y].snake = snake;
-        }
-    }
+    for (const snake of data.board.snakes) for (const part of snake.body) grid[part.x][part.y].snake = snake;
 
     // Track all hazards on the board
     for (const hazard of data.board.hazards) grid[hazard.x][hazard.y].hazard = hazard;
@@ -182,7 +198,7 @@ module.exports = data => {
     for (const food of data.board.food) grid[food.x][food.y].food = food;
 
     // Score each move from current position
-    const moves = surrounding(data.you.head).map(move => ({ ...move, ...scoreMove(data, grid, move, wrap) }))
+    const moves = surrounding(data.you.head).map(move => ({ ...move, ...scoreMove(data, grid, move, wrap, constrict) }))
         .sort((a, b) => b.score - a.score);
     log.info(JSON.stringify(moves));
 

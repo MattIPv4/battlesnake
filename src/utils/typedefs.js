@@ -114,6 +114,7 @@
  * @param {Grid} grid
  * @param {Movement} pos
  * @param {boolean} wrap
+ * @param {boolean} constrict
  * @return {Score}
  */
 
