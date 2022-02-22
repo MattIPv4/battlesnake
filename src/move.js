@@ -18,7 +18,7 @@ const exponential = (val, exp = 2, reverse = false) => (reverse ? -val + 1 : val
  */
 const isTail = (grid, x, y) => grid[x][y].snake
     && x === grid[x][y].snake.body[grid[x][y].snake.body.length - 1].x
-    && y !== grid[x][y].snake.body[grid[x][y].snake.body.length - 1].y;
+    && y === grid[x][y].snake.body[grid[x][y].snake.body.length - 1].y;
 
 /**
  * @type {import('./utils/typedefs').ScoreFunction}
@@ -28,18 +28,20 @@ const scoreSpace = (data, grid, pos, wrap, constrict) => {
     // TODO: Consider where other snakes could move to when ranking the space for this cell
     // TODO: Do we have enough health to explore hazard cells
     let open = 0;
+    let danger = 0;
     floodFill(grid, pos, (grid, x, y) => {
         // Don't explore from cells that contain a snake, unless it's the tail and we're not in constrict mode
         if (grid[x][y].snake && (constrict || !isTail(grid, x, y))) return { continue: true };
 
         // Track open cells we found (treat hazard cells and tails as open, but give them far less weight)
         // Hazard cells do us harm if our head is in one, and tails may still be there if the snake eats food
-        open += grid[x][y].hazard || grid[x][y].snake ? 1/5 : 1;
+        if (grid[x][y].hazard || grid[x][y].snake) danger++;
+        else open++;
     }, wrap);
 
     return {
-        score: open / (grid.length * grid[0].length),
-        data: {},
+        score: (open + danger/5) / (grid.length * grid[0].length),
+        data: { open, danger },
     };
 };
 
@@ -198,7 +200,8 @@ module.exports = data => {
     for (const food of data.board.food) grid[food.x][food.y].food = food;
 
     // Score each move from current position
-    const moves = surrounding(data.you.head).map(move => ({ ...move, ...scoreMove(data, grid, move, wrap, constrict) }))
+    const moves = surrounding(data.you.head)
+        .map(move => ({ ...move, ...scoreMove(data, grid, move, wrap, constrict) }))
         .sort((a, b) => b.score - a.score);
     log.info(JSON.stringify(moves));
 
